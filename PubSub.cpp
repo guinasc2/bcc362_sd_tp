@@ -52,7 +52,7 @@ public:
 	}
 
 	void consumeLoop() {
-		while (true) {
+		while (numRequests < NUM_REQUESTS) {
 			try {
 				sub.consume();
 				if (logMensagens.size() > 0) {
