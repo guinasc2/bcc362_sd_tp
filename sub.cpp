@@ -4,7 +4,10 @@
 using namespace std;
 using namespace sw::redis;
 
+bool pare;
+
 void trataMensagem(std::string channel, std::string msg) {
+	if (msg == ":q") pare = true;
 	cout << "mensagem recebida: \"" << msg  << "\" do canal \"" << channel << "\"" << endl;
 }
 
@@ -22,7 +25,8 @@ int main() {
 
 	sub.subscribe("todos");
 
-	while (true) {
+	pare = false;
+	while (!pare) {
 		try {
 			sub.consume();
 		} catch (const Error &err) {

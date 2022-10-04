@@ -22,9 +22,9 @@ int main() {
 		cout << "Digite sua mensagem (:q para sair)\n";
 		getline(cin, mensagem);
 
-		if (mensagem != ":q") {
-			redis.publish("todos", mensagem);
-		} else {
+		redis.publish("todos", mensagem);
+		
+		if (mensagem == ":q") {
 			quit = !quit;
 		}
 	}

@@ -7,12 +7,10 @@
 #include <thread>
 #include <sw/redis++/redis++.h>
 
-#define NUM_REQUESTS 3
+#define NUM_REQUESTS 100
 
 using namespace std;
 using namespace sw::redis;
-
-void tratarMensagem(string canal, string mensagem);
 
 typedef struct {
 	int id;
@@ -29,14 +27,14 @@ public:
 		return opts;
 	}
 
-	int id, tempoRegiaoCritica, numRequests;
+	int id, tempoRegiaoCritica, maxRequests, numRequests;
 	ConnectionOptions connection_options_;
 	Redis redis_;
 	Subscriber sub;
-	deque<Mensagem> logMensagens;
+	static deque<Mensagem> logMensagens;
 	bool podePedir;
 
-	PubSub(string host = "127.0.0.1", int port = 6379, int idPeer = 0) : 
+	PubSub(string host = "127.0.0.1", int port = 6379, int idPeer = 0, int requests = NUM_REQUESTS) : 
 		connection_options_(_build_options(host, port)),
 		redis_(connection_options_), sub(redis_.subscriber()) {
 			sub.on_message(tratarMensagem);
@@ -44,6 +42,7 @@ public:
 			id = idPeer;
 			tempoRegiaoCritica = 3;
 			numRequests = 0;
+			maxRequests = requests;
 			srand(time(NULL));
 		}
 
@@ -52,7 +51,7 @@ public:
 	}
 
 	void consumeLoop() {
-		while (numRequests < NUM_REQUESTS) {
+		while (numRequests < maxRequests) {
 			try {
 				sub.consume();
 				if (logMensagens.size() > 0) {
@@ -62,7 +61,6 @@ public:
 						releaseAccess();
 					}
 				}
-				// cout << "Tentando ler" << endl;
 			} catch (const Error &err) {
 				cout << "Não foi possível consumir uma mensagem!" << endl;
 			}
@@ -82,12 +80,13 @@ public:
 	}
 
 	void accessRegiaoCritica() {
-		int tempo = 2;//(rand() % tempoRegiaoCritica) + 1;
+		int tempo = (rand() % tempoRegiaoCritica) + 1;
+		cout << id << ": Estou usando a região crítica" << endl;
 		this_thread::sleep_for(chrono::milliseconds(tempo * 1000));
 	}
 
 	void startPub() {
-		while (numRequests < NUM_REQUESTS) {
+		while (numRequests < maxRequests) {
 			if (podePedir) {
 				requestAccess();
 				numRequests++;
@@ -100,7 +99,8 @@ public:
 	}
 
 	void start() {
-		cout << "PubSub iniciado." << endl;
+		cout << "PubSub " << id << " iniciado." << endl;
+		
 		thread subscriber(&PubSub::startSub, this);
 		this_thread::sleep_for(chrono::milliseconds(1000));
 		thread publisher(&PubSub::startPub, this);
@@ -109,54 +109,81 @@ public:
 		subscriber.join();
 	}
 
+	static void tratarMensagem(string canal, string mensagem) {
+		size_t token = mensagem.find_first_of(":", 0);
+		string idString = mensagem.substr(0, token);
+		string conteudo = mensagem.substr(token+1, mensagem.size());
+
+		Mensagem msg;
+		msg.id = stoi(idString);
+		msg.conteudo = conteudo;
+
+		cout << "Mensagem recebida: " << mensagem << endl;
+
+		if (msg.conteudo == "requestAccess") {
+			logMensagens.push_back(msg);
+			cout << "Mensagem recebida colocada na fila: " << mensagem << endl;
+		} else if (msg.conteudo == "releaseAccess") {
+			if (logMensagens.front().id == msg.id) {
+				cout << "Mensagem tirada da fila: " << mensagem << endl;
+				logMensagens.pop_front();
+			}
+			cout << "Mensagem recebida de release: " << mensagem << endl;
+		} else {
+			cout << "Mensagem desconhecida: " << mensagem << endl;
+		}
+	}
+
 };
 
-// deque<Mensagem> PubSub::logMensagens;
-// int PubSub::id;
-// bool PubSub::podePedir;
+deque<Mensagem> PubSub::logMensagens;
 
-PubSub peer;
+// int main() {
+
+// 	string enter;
+
+// 	cout << "Digite o ID do peer e aperte enter para começar (delay de 2 segundos)" << endl;
+// 	cin >> enter;
+	
+// 	this_thread::sleep_for(chrono::milliseconds(2000));
+
+// 	PubSub peer("127.0.0.1", 6379, stoi(enter), 3);
+// 	peer.subscribe("todos");
+
+// 	peer.start();
+
+// 	cout << "\n\nPubSub encerrou." << endl;
+
+// 	return 0;
+// }
+
+
+bool podeComecar = false;
 
 int main() {
 
-	string enter;
+    int quantPeers, requests;
 
-	cout << "Digite o ID do peer e aperte enter para começar (delay de 2 segundos)" << endl;
-	cin >> enter;
-	
-	this_thread::sleep_for(chrono::milliseconds(2000));
+    cout << "Digite o número de peers e a quantidade de requests: ";
+    cin >> quantPeers >> requests;
 
-	peer = PubSub("127.0.0.1", 6379, stoi(enter));
-	peer.subscribe("todos");
+    vector<PubSub> peers(quantPeers);
+    for (int i = 0; i < quantPeers; i++) {
+        peers[i] = PubSub("127.0.0.1", 6379, i+1, requests);
+    }
 
-	peer.start();
+    vector<thread> threadList(quantPeers);
+    for (int i = 0; i < quantPeers; i++) {
+        threadList[i] = thread(peers[i].start);
+    }
 
-	cout << "\n\nPubSub encerrou." << endl;
+    podeComecar = true;
 
-	return 0;
-}
+    for (int i = 0; i < quantPeers; i++) {
+        threadList[i].join();
+    }
 
-void tratarMensagem(string canal, string mensagem) {
-	size_t token = mensagem.find_first_of(":", 0);
-	string idString = mensagem.substr(0, token);
-	string conteudo = mensagem.substr(token+1, mensagem.size());
+    cout << "Main finalizado." << endl;
 
-	Mensagem msg;
-	msg.id = stoi(idString);
-	msg.conteudo = conteudo;
-
-	cout << "Mensagem recebida: " << mensagem << endl;
-
-	if (msg.conteudo == "requestAccess") {
-		peer.logMensagens.push_back(msg);
-		cout << "Mensagem recebida colocada na fila: " << mensagem << endl;
-	} else if (msg.conteudo == "releaseAccess") {
-		if (peer.logMensagens.front().id == msg.id) {
-			cout << "Mensagem tirada da fila: " << mensagem << endl;
-			peer.logMensagens.pop_front();
-		}
-		cout << "Mensagem recebida de release: " << mensagem << endl;
-	} else {
-		cout << "Mensagem desconhecida: " << mensagem << endl;
-	}
+    return 0;
 }
