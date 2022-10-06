@@ -24,6 +24,7 @@ public:
 		ConnectionOptions opts;
 		opts.host = host;
 		opts.port = port;
+		opts.password = "eresgQzk0RVX75hEXx79";
 		return opts;
 	}
 
@@ -140,6 +141,13 @@ public:
 
 deque<Mensagem> PubSub::logMensagens;
 
+// redis-cli -h containers-us-west-50.railway.app -p 6310 -a eresgQzk0RVX75hEXx79
+
+// Augusto
+// opts.host = "containers-us-west-39.railway.app";
+// opts.port = 7369;
+// opts.password = "gBsfV4qEBihL8i2iVIlr";
+
 int main() {
 
 	string id, pedidos;
@@ -149,7 +157,7 @@ int main() {
 	
 	this_thread::sleep_for(chrono::milliseconds(2000));
 
-	PubSub peer("127.0.0.1", 6379, stoi(id), stoi(pedidos));
+	PubSub peer("containers-us-west-50.railway.app", 6310, stoi(id), stoi(pedidos));
 	peer.subscribe("todos");
 
 	peer.start();

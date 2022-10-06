@@ -9,8 +9,9 @@ int main() {
 	bool quit = false;
 	string mensagem;
 	ConnectionOptions opts;
-	opts.host = "127.0.0.1";
-	opts.port = 6379;
+	opts.host = "containers-us-west-50.railway.app";
+	opts.port = 6310;
+	opts.password = "eresgQzk0RVX75hEXx79";
 
 	auto redis = Redis(opts);
 
