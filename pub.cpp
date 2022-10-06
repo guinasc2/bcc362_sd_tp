@@ -7,11 +7,15 @@ using namespace sw::redis;
 int main() {
 
 	bool quit = false;
-	string mensagem;
+	string mensagem, senha;
+
+	cout << "Digite a senha: ";
+	cin >> senha;
+
 	ConnectionOptions opts;
 	opts.host = "containers-us-west-50.railway.app";
 	opts.port = 6310;
-	opts.password = "eresgQzk0RVX75hEXx79";
+	opts.password = senha;
 
 	auto redis = Redis(opts);
 

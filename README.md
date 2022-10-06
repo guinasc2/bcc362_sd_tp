@@ -5,6 +5,10 @@ Feito em c++ usando Redis e a biblioteca redis-plus-plus (https://github.com/sew
 
 Para compilar:
   g++ PubSub.cpp -o PubSub -std=c++17 -lredis++ -lhiredis -pthread
+  g++ pub.cpp -o pub -std=c++17 -lredis++ -lhiredis -pthread
+  g++ sub.cpp -o sub -std=c++17 -lredis++ -lhiredis -pthread
 
 Para executar
   ./PubSub
+
+eresgQzk0RVX75hEXx79

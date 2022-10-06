@@ -18,16 +18,21 @@ void trataMensagem2(string channel, string msg) {
 
 int main() {
 
+	string senha;
+
+	cout << "Digite a senha: ";
+	cin >> senha;
+
 	ConnectionOptions opts;
 	opts.host = "containers-us-west-50.railway.app";
 	opts.port = 6310;
-	opts.password = "eresgQzk0RVX75hEXx79";
+	opts.password = senha;
 
 	auto redis = Redis(opts);
 
 	auto sub = redis.subscriber();
 
-	sub.on_message(trataMensagem); // chamada de função por referência
+	sub.on_message(trataMensagem);
 
 	sub.subscribe("todos");
 

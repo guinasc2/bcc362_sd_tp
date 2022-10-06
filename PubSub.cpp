@@ -20,11 +20,11 @@ typedef struct {
 class PubSub {
 
 public:
-	ConnectionOptions _build_options(string host, int port) {
+	ConnectionOptions _build_options(string host, int port, string password) {
 		ConnectionOptions opts;
 		opts.host = host;
 		opts.port = port;
-		opts.password = "eresgQzk0RVX75hEXx79";
+		opts.password = password;
 		return opts;
 	}
 
@@ -35,8 +35,8 @@ public:
 	static deque<Mensagem> logMensagens;
 	bool podePedir;
 
-	PubSub(string host = "127.0.0.1", int port = 6379, int idPeer = 0, int requests = NUM_REQUESTS) : 
-		connection_options_(_build_options(host, port)),
+	PubSub(string host = "127.0.0.1", int port = 6379, string password = "", int idPeer = 0, int requests = NUM_REQUESTS) : 
+		connection_options_(_build_options(host, port, password)),
 		redis_(connection_options_), sub(redis_.subscriber()) {
 			sub.on_message(tratarMensagem);
 			podePedir = true;
@@ -141,23 +141,16 @@ public:
 
 deque<Mensagem> PubSub::logMensagens;
 
-// redis-cli -h containers-us-west-50.railway.app -p 6310 -a eresgQzk0RVX75hEXx79
-
-// Augusto
-// opts.host = "containers-us-west-39.railway.app";
-// opts.port = 7369;
-// opts.password = "gBsfV4qEBihL8i2iVIlr";
-
 int main() {
 
-	string id, pedidos;
+	string id, pedidos, senha;
 
-	cout << "Digite o ID do peer, o número de acesso à região crítica e aperte enter para começar (delay de 2 segundos)" << endl;
-	cin >> id >> pedidos;
+	cout << "Digite a senha do servidor, o ID do peer, o número de acesso à região crítica e aperte enter para começar (delay de 2 segundos)" << endl;
+	cin >> senha >> id >> pedidos;
 	
 	this_thread::sleep_for(chrono::milliseconds(2000));
 
-	PubSub peer("containers-us-west-50.railway.app", 6310, stoi(id), stoi(pedidos));
+	PubSub peer("containers-us-west-50.railway.app", 6310, senha, stoi(id), stoi(pedidos));
 	peer.subscribe("todos");
 
 	peer.start();
