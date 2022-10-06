@@ -27,7 +27,7 @@ public:
 		return opts;
 	}
 
-	int id, tempoRegiaoCritica, maxRequests, numRequests;
+	int id, tempoRegiaoCritica, maxRequests, numRequests, numReleases;
 	ConnectionOptions connection_options_;
 	Redis redis_;
 	Subscriber sub;
@@ -42,6 +42,7 @@ public:
 			id = idPeer;
 			tempoRegiaoCritica = 3;
 			numRequests = 0;
+			numReleases = 0;
 			maxRequests = requests;
 			srand(time(NULL));
 		}
@@ -51,7 +52,7 @@ public:
 	}
 
 	void consumeLoop() {
-		while (numRequests < maxRequests+1) {
+		while (numReleases < maxRequests) {
 			try {
 				sub.consume();
 				if (logMensagens.size() > 0) {
@@ -59,6 +60,7 @@ public:
 						logMensagens.pop_front();
 						accessRegiaoCritica();
 						releaseAccess();
+						numReleases++;
 					}
 				}
 			} catch (const Error &err) {
