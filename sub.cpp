@@ -11,6 +11,11 @@ void trataMensagem(std::string channel, std::string msg) {
 	cout << "mensagem recebida: \"" << msg  << "\" do canal \"" << channel << "\"" << endl;
 }
 
+void trataMensagem2(string channel, string msg) {
+	if (msg == ":q") pare = true;
+	cout << "Recebeu uma mensagem!!\n" << endl;
+}
+
 int main() {
 
 	ConnectionOptions opts;
@@ -21,7 +26,7 @@ int main() {
 
 	auto sub = redis.subscriber();
 
-	sub.on_message(trataMensagem);
+	sub.on_message(trataMensagem); // chamada de função por referência
 
 	sub.subscribe("todos");
 
@@ -30,10 +35,11 @@ int main() {
 		try {
 			sub.consume();
 		} catch (const Error &err) {
-			cout << "deu ruim" << endl;
+			cout << err.what() << endl;
 		}
-
 	}
+
+	cout << "Programa finalizado\n";
 
 	return 0;
 }

@@ -4,13 +4,9 @@
 using namespace std;
 using namespace sw::redis;
 
-// class Pub {
-// 	auto redis;
-// }
-
 int main() {
 
-	int quit = 0;
+	bool quit = false;
 	string mensagem;
 	ConnectionOptions opts;
 	opts.host = "127.0.0.1";

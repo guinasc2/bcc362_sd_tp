@@ -51,7 +51,7 @@ public:
 	}
 
 	void consumeLoop() {
-		while (numRequests < maxRequests) {
+		while (numRequests < maxRequests+1) {
 			try {
 				sub.consume();
 				if (logMensagens.size() > 0) {
@@ -62,7 +62,7 @@ public:
 					}
 				}
 			} catch (const Error &err) {
-				cout << "Não foi possível consumir uma mensagem!" << endl;
+				cout << err.what() << endl;
 			}
 		}
 	}
@@ -138,52 +138,52 @@ public:
 
 deque<Mensagem> PubSub::logMensagens;
 
-// int main() {
-
-// 	string enter;
-
-// 	cout << "Digite o ID do peer e aperte enter para começar (delay de 2 segundos)" << endl;
-// 	cin >> enter;
-	
-// 	this_thread::sleep_for(chrono::milliseconds(2000));
-
-// 	PubSub peer("127.0.0.1", 6379, stoi(enter), 3);
-// 	peer.subscribe("todos");
-
-// 	peer.start();
-
-// 	cout << "\n\nPubSub encerrou." << endl;
-
-// 	return 0;
-// }
-
-
-bool podeComecar = false;
-
 int main() {
 
-    int quantPeers, requests;
+	string id, pedidos;
 
-    cout << "Digite o número de peers e a quantidade de requests: ";
-    cin >> quantPeers >> requests;
+	cout << "Digite o ID do peer, o número de acesso à região crítica e aperte enter para começar (delay de 2 segundos)" << endl;
+	cin >> id >> pedidos;
+	
+	this_thread::sleep_for(chrono::milliseconds(2000));
 
-    vector<PubSub> peers(quantPeers);
-    for (int i = 0; i < quantPeers; i++) {
-        peers[i] = PubSub("127.0.0.1", 6379, i+1, requests);
-    }
+	PubSub peer("127.0.0.1", 6379, stoi(id), stoi(pedidos));
+	peer.subscribe("todos");
 
-    vector<thread> threadList(quantPeers);
-    for (int i = 0; i < quantPeers; i++) {
-        threadList[i] = thread(peers[i].start);
-    }
+	peer.start();
 
-    podeComecar = true;
+	cout << "\n\nPubSub encerrou." << endl;
 
-    for (int i = 0; i < quantPeers; i++) {
-        threadList[i].join();
-    }
-
-    cout << "Main finalizado." << endl;
-
-    return 0;
+	return 0;
 }
+
+
+// bool podeComecar = false;
+
+// int main() {
+
+//     int quantPeers, requests;
+
+//     cout << "Digite o número de peers e a quantidade de requests: ";
+//     cin >> quantPeers >> requests;
+
+//     vector<PubSub> peers(quantPeers);
+//     for (int i = 0; i < quantPeers; i++) {
+//         peers[i] = PubSub("127.0.0.1", 6379, i+1, requests);
+//     }
+
+//     vector<thread> threadList(quantPeers);
+//     for (int i = 0; i < quantPeers; i++) {
+//         threadList[i] = thread(peers[i].start);
+//     }
+
+//     podeComecar = true;
+
+//     for (int i = 0; i < quantPeers; i++) {
+//         threadList[i].join();
+//     }
+
+//     cout << "Main finalizado." << endl;
+
+//     return 0;
+// }
