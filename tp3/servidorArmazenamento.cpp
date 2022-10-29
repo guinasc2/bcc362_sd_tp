@@ -18,7 +18,7 @@ typedef struct {
 } Mensagem;
 
 typedef struct {
-	int conteudo;
+	string conteudo;
 	bool valido;
 } Data;
 
@@ -34,7 +34,7 @@ typedef struct {
 
 typedef struct {
 	int posicao;
-	int conteudo;
+	string conteudo;
 } Escrita;
 
 #define topicoCliente "armazenamento"
@@ -141,7 +141,7 @@ public:
 
 			if (posicaoLeitura >= 0 && id == idPrimario) {
 				if (array[posicaoLeitura].valido)
-					message = to_string(array[posicaoLeitura].conteudo);
+					message = array[posicaoLeitura].conteudo;
 				else
 					message = "Empty";
 				
@@ -214,7 +214,7 @@ public:
 				string posicaoString = m.conteudo.substr(token+1, token2);
 				string valorString = m.conteudo.substr(token2+1, mensagem.size());
 
-				escrita.conteudo = stoi(valorString);
+				escrita.conteudo = valorString;
 				escrita.posicao = stoi(posicaoString);
 			}
 		} else if (canal.compare(topicoCliente) == 0) {
@@ -233,7 +233,7 @@ public:
 					string posicaoString = mensagem.substr(token+1, token2);
 					string valorString = mensagem.substr(token2+1, mensagem.size());
 
-					escrita.conteudo = stoi(valorString);
+					escrita.conteudo = valorString;
 					escrita.posicao = stoi(posicaoString);
 				}
 			} else {
