@@ -59,7 +59,7 @@ public:
 	static int id, idPrimario, posicaoLeitura;
 	static deque<Mensagem> logMensagens;
 	static TryQueue ordem;
-	static bool requestIdPrimario, temPrimario;
+	static bool requestIdPrimario, temPrimario, requestFromClient, responseFromPrimario, waitForOthers;
 	static Escrita escrita;
 
 	ServidorArmazenamento(string host = "127.0.0.1", int port = 6379, string password = "", int idPeer = 0) : 
@@ -70,6 +70,9 @@ public:
 			idPrimario = -1;
 			requestIdPrimario = false;
 			temPrimario = false;
+			requestFromClient = false;
+			responseFromPrimario = false;
+			waitForOthers = false;
 			posicaoLeitura = -1;
 			escrita.posicao = -1;
 			for (int i = 0; i < 100; i++) array[i].valido = false;
@@ -120,9 +123,9 @@ public:
 		this_thread::sleep_for(chrono::milliseconds(1000));
 		thread publisher(&ServidorArmazenamento::startPub, this);
 
-		subscriber.join();
-		responder.join();
 		publisher.join();
+		responder.join();
+		subscriber.join();
 	}
 
 	string makeMessage(string mensagem) {
@@ -139,24 +142,74 @@ public:
 				requestIdPrimario = false;
 			}
 
+			if (logMensagens.size() > 0 && id == idPrimario) {
+				Mensagem m = logMensagens[0];
+				logMensagens.pop_front();
+				message = m.conteudo;
+				if (message.find("read") != std::string::npos) {
+					cout << "DEBUG Mensagem de read novo primário -> " + message << endl;
+					size_t token = message.find_first_of(",", 0);
+					string posicaoString = message.substr(token+1, message.size());
+
+					posicaoLeitura = stoi(posicaoString);
+				} else if (message.find("write") != std::string::npos) {
+					cout << "DEBUG Mensagem de write novo primário -> " + message << endl;
+					size_t token = message.find_first_of(",", 0);
+					size_t token2 = message.find_first_of(",", token+1);
+					string posicaoString = message.substr(token+1, token2);
+					string valorString = message.substr(token2+1, message.size());
+
+					escrita.conteudo = valorString;
+					escrita.posicao = stoi(posicaoString);
+				}
+			}
+
 			if (posicaoLeitura >= 0 && id == idPrimario) {
+				message = "response:";
 				if (array[posicaoLeitura].valido)
-					message = array[posicaoLeitura].conteudo;
+					message += array[posicaoLeitura].conteudo;
 				else
-					message = "Empty";
+					message += "Empty";
 				
+				redis_.publish(topicoServidores, makeMessage("acceptRequestFromClient"));
 				redis_.publish(topicoCliente, message);
 				posicaoLeitura = -1;
 			}
 
-			if (escrita.posicao >= 0) {
+			if (escrita.posicao >= 0 && id == idPrimario) {
 				array[escrita.posicao].conteudo = escrita.conteudo;
 				array[escrita.posicao].valido = true;
 				escrita.posicao = -1;
 
-				if (id == idPrimario) {	
-					redis_.publish(topicoServidores, makeMessage("acceptRequestFromClient"));
-					redis_.publish(topicoCliente, "Escrita realizada com sucesso");
+				redis_.publish(topicoServidores, makeMessage("acceptRequestFromClient"));
+				redis_.publish(topicoCliente, "response:Escrita realizada com sucesso");
+			}
+
+			if (waitForOthers) {
+				this_thread::sleep_for(chrono::milliseconds(3000)); // Espera todos os servidores processarem
+			}
+
+			if (requestFromClient) {
+				requestFromClient = false;
+				this_thread::sleep_for(chrono::milliseconds(1500)); // Espera uma resposta do primário
+				if (responseFromPrimario) {
+					cout << "DEBUG -> Primário respondeu para o cliente" << endl;
+					responseFromPrimario = false;
+					if (escrita.posicao >= 0) {
+						array[escrita.posicao].conteudo = escrita.conteudo;
+						array[escrita.posicao].valido = true;
+						cout << "DEBUG -> secundário tá salvando isso na posição " << escrita.posicao <<":"<<array[escrita.posicao].conteudo<<endl;
+						escrita.posicao = -1;
+
+						// servidor deve avisar ao primário que recebeu a mensagem
+						// redis_.publish(topicoServidores, makeMessage(""));
+					}
+				} else { // Não teve resposta, deve decidir um novo primário
+					cout << "DEBUG -> Primário não respondeu para cliente" << endl;
+					ordem.size = 0;
+					idPrimario = -1;
+					temPrimario = false;
+					startPub();
 				}
 			}
 		}
@@ -206,19 +259,22 @@ public:
 				temPrimario = true;
 				idPrimario = stoi(conteudo);
 			} else if (msg.conteudo.find("acceptRequestFromClient", 0)  != std::string::npos && id != idPrimario) {
+				responseFromPrimario = true;
 				Mensagem m = logMensagens[0];
-				logMensagens.pop_back();
+				logMensagens.pop_front();
 				cout << "DEBUG acceptRequestFromClient -> " << m.conteudo << endl;
-				size_t token = m.conteudo.find_first_of(",", 0);
-				size_t token2 = m.conteudo.find_first_of(",", token+1);
-				string posicaoString = m.conteudo.substr(token+1, token2);
-				string valorString = m.conteudo.substr(token2+1, mensagem.size());
+				if (m.conteudo.find("write") != std::string::npos) {
+					size_t token = m.conteudo.find_first_of(",", 0);
+					size_t token2 = m.conteudo.find_first_of(",", token+1);
+					string posicaoString = m.conteudo.substr(token+1, token2);
+					string valorString = m.conteudo.substr(token2+1, mensagem.size());
 
-				escrita.conteudo = valorString;
-				escrita.posicao = stoi(posicaoString);
+					escrita.conteudo = valorString;
+					escrita.posicao = stoi(posicaoString);
+				}
 			}
 		} else if (canal.compare(topicoCliente) == 0) {
-			if (id == idPrimario) {
+			if (id == idPrimario && mensagem.find("response:") == std::string::npos) {
 				cout << "DEBUG -> Servidor primário recebeu mensagem do cliente" << endl;
 				if (mensagem.find("read") != std::string::npos) {
 					cout << "DEBUG Mensagem de read -> " + mensagem << endl;
@@ -237,12 +293,14 @@ public:
 					escrita.posicao = stoi(posicaoString);
 				}
 			} else {
-				if (mensagem.find("write") != std::string::npos) {
-					cout << "DEBUG Mensagem de write -> " + mensagem << endl;
+				if (mensagem.find("response:") == std::string::npos) {
+					cout << "DEBUG Mensagem do cliente salva -> " + mensagem << endl;
 					Mensagem msg;
 					msg.id = 0;
 					msg.conteudo = mensagem;
 					logMensagens.push_back(msg);
+					
+					requestFromClient = true;
 				}
 			}
 		} else {
@@ -258,6 +316,9 @@ deque<Mensagem> ServidorArmazenamento::logMensagens;
 TryQueue ServidorArmazenamento::ordem;
 bool ServidorArmazenamento::requestIdPrimario;
 bool ServidorArmazenamento::temPrimario;
+bool ServidorArmazenamento::requestFromClient;
+bool ServidorArmazenamento::responseFromPrimario;
+bool ServidorArmazenamento::waitForOthers;
 int ServidorArmazenamento::posicaoLeitura;
 Escrita ServidorArmazenamento::escrita;
 
