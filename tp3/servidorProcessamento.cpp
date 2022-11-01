@@ -199,6 +199,28 @@ public:
 				conteudo = msg.conteudo.substr(token + 1, msg.conteudo.size());
 				temPrimario = true;
 				idPrimario = stoi(conteudo);
+			} else if (msg.conteudo.find("acceptRequestFromClient", 0)  != std::string::npos && id != idPrimario) {
+				responseFromPrimario = true;
+				Mensagem m = logMensagens[0];
+				logMensagens.pop_front();
+				cout << "DEBUG acceptRequestFromClient -> " << m.conteudo << endl;
+				if (m.conteudo.find("read") != std::string::npos) {
+					size_t token = m.conteudo.find_first_of(",", 0);
+					string posicaoString = m.conteudo.substr(token+1, mensagem.size());
+
+					posicaoLeitura = stoi(posicaoString);
+				} else if (m.conteudo.find("write") != std::string::npos) {
+					size_t token = m.conteudo.find_first_of(",", 0);
+					size_t token2 = m.conteudo.find_first_of(",", token+1);
+					string posicaoString = m.conteudo.substr(token+1, token2);
+					string valorString = m.conteudo.substr(token2+1, mensagem.size());
+
+					escrita.conteudo = valorString;
+					escrita.posicao = stoi(posicaoString);
+				}
+			} else if (msg.conteudo.find("response:", 0)  != std::string::npos && id == idPrimario) {
+				cout << "DEBUG -> resposta de um servidor secundário" << endl;
+				logMensagens.push_back(msg);
 			}
 		} else if (canal.compare(topicoCliente) == 0) { // mensagem do cliente
 			if (id == idPrimario && mensagem.find("response:") == std::string::npos) { // açoes do servidor primário
