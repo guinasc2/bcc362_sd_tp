@@ -12,6 +12,10 @@
 using namespace std;
 using namespace sw::redis;
 
+#define topicoCliente "armazenamento"
+#define topicoServidores "armazenamentoInterno"
+#define numServidores 11
+
 typedef struct {
 	int id;
 	string conteudo;
@@ -28,7 +32,7 @@ typedef struct {
 } Try;
 
 typedef struct {
-	Try tentativas[11];
+	Try tentativas[numServidores];
 	size_t size;
 } TryQueue;
 
@@ -37,8 +41,15 @@ typedef struct {
 	string conteudo;
 } Escrita;
 
-#define topicoCliente "armazenamento"
-#define topicoServidores "armazenamentoInterno"
+typedef struct {
+	int id;
+	bool seguro;
+} Server;
+
+typedef struct {
+	Server servidores[numServidores];
+	size_t size;
+} ServerList;
 
 class ServidorArmazenamento {
 
@@ -55,11 +66,12 @@ public:
 	Redis redis_;
 	Subscriber sub;
 	Data array[100];
+	ServerList serverList;
 	
 	static int id, idPrimario, posicaoLeitura;
 	static deque<Mensagem> logMensagens;
 	static TryQueue ordem;
-	static bool requestIdPrimario, temPrimario, requestFromClient, responseFromPrimario, waitForOthers;
+	static bool requestIdPrimario, temPrimario, requestFromClient, responseFromPrimario;
 	static Escrita escrita;
 
 	ServidorArmazenamento(string host = "127.0.0.1", int port = 6379, string password = "", int idPeer = 0) : 
@@ -72,10 +84,12 @@ public:
 			temPrimario = false;
 			requestFromClient = false;
 			responseFromPrimario = false;
-			waitForOthers = false;
 			posicaoLeitura = -1;
 			escrita.posicao = -1;
+			ordem.size = 0;
+			serverList.size = 0;
 			for (int i = 0; i < 100; i++) array[i].valido = false;
+			for (int i = 0; i < numServidores; i++) serverList.servidores[i].seguro = false;
 			srand(time(NULL));
 		}
 
@@ -104,9 +118,13 @@ public:
 			idPrimario = ordem.tentativas[0].idServidor;
 		cout << "DEBUG -> ordem.size = " << ordem.size << endl;
 		for (int i = 0; i < ordem.size; i++) {
+			serverList.servidores[i].id = ordem.tentativas[i].idServidor;
+			serverList.servidores[i].seguro = true;
+			serverList.size++;
 			cout << "DEBUG -> " << ordem.tentativas[i].idServidor << ":" << ordem.tentativas[i].tentativa << endl;
 		}
 
+		temPrimario = true;
 		message = "servidorPrimario:" + to_string(idPrimario);
 		cout << "DEBUG -> " << message << endl;
 	}
@@ -134,16 +152,24 @@ public:
 	}
 
 	void responderMensagens() {
+		Mensagem m;
 		string message;
 		while (true) {
 			if (requestIdPrimario) {
+				m = logMensagens[0];
+				logMensagens.pop_front();
+				if (serverList.size < numServidores) {
+					serverList.servidores[serverList.size].id = m.id;
+					serverList.servidores[serverList.size].seguro = true;
+					serverList.size++;
+				}
 				message = "temPrimario!" + to_string(id);
 				redis_.publish(topicoServidores, makeMessage(message));
 				requestIdPrimario = false;
 			}
 
 			if (logMensagens.size() > 0 && id == idPrimario) {
-				Mensagem m = logMensagens[0];
+				m = logMensagens[0];
 				logMensagens.pop_front();
 				message = m.conteudo;
 				if (message.find("read") != std::string::npos) {
@@ -165,6 +191,11 @@ public:
 			}
 
 			if (posicaoLeitura >= 0 && id == idPrimario) {
+				deque<string> respostas;
+				deque<int> totalPorResposta;
+				int totalRespostas = 0, posicaoMaioria;
+				bool servidorOK, novaResposta;
+
 				message = "response:";
 				if (array[posicaoLeitura].valido)
 					message += array[posicaoLeitura].conteudo;
@@ -172,21 +203,141 @@ public:
 					message += "Empty";
 				
 				redis_.publish(topicoServidores, makeMessage("acceptRequestFromClient"));
+				this_thread::sleep_for(chrono::milliseconds(3000)); // Espera uma resposta dos outros servidores
+
+				respostas.push_back(message);
+				totalPorResposta.push_back(1);
+				for (int j = 0; j < logMensagens.size(); j++) {
+					m = logMensagens[j];
+					servidorOK = false;
+					for (int i = 0; i < serverList.size; i++) {
+						if (serverList.servidores[i].id == m.id && serverList.servidores[i].seguro) {
+							servidorOK = true;
+							break;
+						}
+					}
+					if (servidorOK) {
+						novaResposta = true;
+						for (int i = 0; i < respostas.size(); i++) {
+							if (respostas[i].compare(m.conteudo) == 0) {
+								novaResposta = false;
+								totalPorResposta[i]++;
+								break;
+							}
+						}
+						if (novaResposta) {
+							respostas.push_back(m.conteudo);
+							totalPorResposta.push_back(1);
+						}
+					}
+				}
+
+				posicaoMaioria = 0;
+				for (int i = 1; i < totalPorResposta.size(); i++) {
+					if (totalPorResposta[i] > totalPorResposta[posicaoMaioria]) {
+						posicaoMaioria = i;
+					}
+				}
+
+				if (message.compare(respostas[posicaoMaioria]) != 0) {
+					idPrimario = -1;
+					temPrimario = false;
+				} else {
+					for (int i = 0; i < logMensagens.size(); i++) {
+						m = logMensagens[i];
+						if (m.conteudo.compare(respostas[posicaoMaioria]) != 0) {
+							for (int j = 0; j < serverList.size; i++) {
+								if (m.id == serverList.servidores[j].id) {
+									serverList.servidores[j].seguro = false;
+									break;
+								}
+							}
+						}
+					}
+				}
+
+				while (!logMensagens.empty()) {
+					logMensagens.pop_front();
+				}
+
+				message = respostas[posicaoMaioria];
 				redis_.publish(topicoCliente, message);
 				posicaoLeitura = -1;
 			}
 
 			if (escrita.posicao >= 0 && id == idPrimario) {
+				deque<string> respostas;
+				deque<int> totalPorResposta;
+				int totalRespostas = 0, posicaoMaioria;
+				bool servidorOK, novaResposta;
+				
 				array[escrita.posicao].conteudo = escrita.conteudo;
 				array[escrita.posicao].valido = true;
-				escrita.posicao = -1;
+
+				message = "response:" + array[escrita.posicao].conteudo;
 
 				redis_.publish(topicoServidores, makeMessage("acceptRequestFromClient"));
-				redis_.publish(topicoCliente, "response:Escrita realizada com sucesso");
-			}
+				this_thread::sleep_for(chrono::milliseconds(3000)); // Espera uma resposta dos outros servidores
 
-			if (waitForOthers) {
-				this_thread::sleep_for(chrono::milliseconds(3000)); // Espera todos os servidores processarem
+				respostas.push_back(message);
+				totalPorResposta.push_back(1);
+				for (int j = 0; j < logMensagens.size(); j++) {
+					m = logMensagens[j];
+					servidorOK = false;
+					for (int i = 0; i < serverList.size; i++) {
+						if (serverList.servidores[i].id == m.id && serverList.servidores[i].seguro) {
+							servidorOK = true;
+							break;
+						}
+					}
+					if (servidorOK) {
+						novaResposta = true;
+						for (int i = 0; i < respostas.size(); i++) {
+							if (respostas[i].compare(m.conteudo) == 0) {
+								novaResposta = false;
+								totalPorResposta[i]++;
+								break;
+							}
+						}
+						if (novaResposta) {
+							respostas.push_back(m.conteudo);
+							totalPorResposta.push_back(1);
+						}
+					}
+				}
+
+				posicaoMaioria = 0;
+				for (int i = 1; i < totalPorResposta.size(); i++) {
+					if (totalPorResposta[i] > totalPorResposta[posicaoMaioria]) {
+						posicaoMaioria = i;
+					}
+				}
+
+				if (message.compare(respostas[posicaoMaioria]) != 0) {
+					idPrimario = -1;
+					temPrimario = false;
+				} else {
+					for (int i = 0; i < logMensagens.size(); i++) {
+						m = logMensagens[i];
+						if (m.conteudo.compare(respostas[posicaoMaioria]) != 0) {
+							for (int j = 0; j < serverList.size; i++) {
+								if (m.id == serverList.servidores[j].id) {
+									serverList.servidores[j].seguro = false;
+									break;
+								}
+							}
+						}
+					}
+				}
+
+				while (!logMensagens.empty()) {
+					logMensagens.pop_front();
+				}
+
+				message = respostas[posicaoMaioria];
+
+				redis_.publish(topicoCliente, message);
+				escrita.posicao = -1;
 			}
 
 			if (requestFromClient) {
@@ -195,18 +346,33 @@ public:
 				if (responseFromPrimario) {
 					cout << "DEBUG -> Primário respondeu para o cliente" << endl;
 					responseFromPrimario = false;
-					if (escrita.posicao >= 0) {
-						array[escrita.posicao].conteudo = escrita.conteudo;
-						array[escrita.posicao].valido = true;
-						cout << "DEBUG -> secundário tá salvando isso na posição " << escrita.posicao <<":"<<array[escrita.posicao].conteudo<<endl;
-						escrita.posicao = -1;
+					if (posicaoLeitura >= 0) {
+						message = "response:";
+						if (array[posicaoLeitura].valido)
+							message += array[posicaoLeitura].conteudo;
+						else
+							message += "Empty";
 
 						// servidor deve avisar ao primário que recebeu a mensagem
-						// redis_.publish(topicoServidores, makeMessage(""));
+						redis_.publish(topicoServidores, makeMessage(message));
+						cout << "DEBUG Mensagem para o primário: " << message << endl;
+						posicaoLeitura = -1;
+					} else if (escrita.posicao >= 0) {
+						array[escrita.posicao].conteudo = escrita.conteudo;
+						array[escrita.posicao].valido = true;
+						cout << "DEBUG -> secundário tá salvando isso na posição " << escrita.posicao <<": "<<array[escrita.posicao].conteudo<<" - "<<array[escrita.posicao].valido<<endl;
+
+						// servidor deve avisar ao primário que recebeu a mensagem
+						message = "response:" + array[escrita.posicao].conteudo;
+						redis_.publish(topicoServidores, makeMessage(message));
+
+						escrita.posicao = -1;
 					}
 				} else { // Não teve resposta, deve decidir um novo primário
 					cout << "DEBUG -> Primário não respondeu para cliente" << endl;
 					ordem.size = 0;
+					serverList.size = 0;
+					for (int i = 0; i < numServidores; i++) serverList.servidores[i].seguro = false;
 					idPrimario = -1;
 					temPrimario = false;
 					startPub();
@@ -216,7 +382,7 @@ public:
 	}
 
 	static void insertTry(Try t) {
-		if (ordem.size == 11) return;
+		if (ordem.size == numServidores) return;
 
 		int i;
 		for (i = ordem.size - 1; i >= 0; i--) {
@@ -245,6 +411,7 @@ public:
 			if (msg.conteudo.find("temPrimario?", 0) != std::string::npos) {
 				if (id == idPrimario) { // servidor primário recebeu essa mensagem
 					requestIdPrimario = true;
+					logMensagens.push_back(msg);
 				} else if (idPrimario == -1) {
 					Try t;
 					token = msg.conteudo.find_first_of("?", 0);
@@ -263,7 +430,12 @@ public:
 				Mensagem m = logMensagens[0];
 				logMensagens.pop_front();
 				cout << "DEBUG acceptRequestFromClient -> " << m.conteudo << endl;
-				if (m.conteudo.find("write") != std::string::npos) {
+				if (m.conteudo.find("read") != std::string::npos) {
+					size_t token = m.conteudo.find_first_of(",", 0);
+					string posicaoString = m.conteudo.substr(token+1, mensagem.size());
+
+					posicaoLeitura = stoi(posicaoString);
+				} else if (m.conteudo.find("write") != std::string::npos) {
 					size_t token = m.conteudo.find_first_of(",", 0);
 					size_t token2 = m.conteudo.find_first_of(",", token+1);
 					string posicaoString = m.conteudo.substr(token+1, token2);
@@ -272,6 +444,9 @@ public:
 					escrita.conteudo = valorString;
 					escrita.posicao = stoi(posicaoString);
 				}
+			} else if (msg.conteudo.find("response:", 0)  != std::string::npos && id == idPrimario) {
+				cout << "DEBUG -> resposta de um servidor secundário" << endl;
+				logMensagens.push_back(msg);
 			}
 		} else if (canal.compare(topicoCliente) == 0) {
 			if (id == idPrimario && mensagem.find("response:") == std::string::npos) {
@@ -318,7 +493,6 @@ bool ServidorArmazenamento::requestIdPrimario;
 bool ServidorArmazenamento::temPrimario;
 bool ServidorArmazenamento::requestFromClient;
 bool ServidorArmazenamento::responseFromPrimario;
-bool ServidorArmazenamento::waitForOthers;
 int ServidorArmazenamento::posicaoLeitura;
 Escrita ServidorArmazenamento::escrita;
 
