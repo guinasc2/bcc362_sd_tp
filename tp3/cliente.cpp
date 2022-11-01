@@ -112,7 +112,20 @@ public:
 			aux = mensagem.substr(token2+1, mensagem.size());
 			m += "," + aux;
 			redis_.publish(topicoArmazenamento, m);
-		} else {
+
+		} else if (mensagem.find("!p") != std::string::npos || mensagem.find("!process") != std::string::npos) {
+
+			token = mensagem.find_first_of(" ", 0);
+			token2 = mensagem.find_first_of(" ", token+1);
+			aux = mensagem.substr(token+1, token2);
+
+			m = aux;
+			aux = mensagem.substr(token2+1, mensagem.size());
+			m += "," + aux;
+
+			redis_.publish(topicoProcessamento, m);
+			
+		}else {
 			cout << "\n\tComando desconhecido!\n\n";
 		}
 	}
