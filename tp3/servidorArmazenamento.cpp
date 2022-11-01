@@ -239,10 +239,10 @@ public:
 					}
 				}
 
-				if (message.compare(respostas[posicaoMaioria]) != 0) {
+				if (message.compare(respostas[posicaoMaioria]) != 0) { // resposta do primário é diferente da maioria
 					idPrimario = -1;
 					temPrimario = false;
-				} else {
+				} else { // caso contrário, é igual
 					for (int i = 0; i < logMensagens.size(); i++) {
 						m = logMensagens[i];
 						if (m.conteudo.compare(respostas[posicaoMaioria]) != 0) {
@@ -344,7 +344,7 @@ public:
 				requestFromClient = false;
 				this_thread::sleep_for(chrono::milliseconds(1500)); // Espera uma resposta do primário
 				if (responseFromPrimario) {
-					cout << "DEBUG -> Primário respondeu para o cliente" << endl;
+					cout << "DEBUG -> Primário deu ok para os secundários" << endl;
 					responseFromPrimario = false;
 					if (posicaoLeitura >= 0) {
 						message = "response:";
