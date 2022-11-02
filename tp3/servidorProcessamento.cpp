@@ -545,97 +545,94 @@ public:
 					requestFromClient = true;
 				}
 			}
-			else
-			{
-				cout << "Essa mensagem nem devia ter chegado aqui e será descartada!" << endl;
-			}
 		}
-
-		static long
-		fibonacci(int n)
-		{
-			int cont;
-			long int x = 0, z = 1;
-
-			if (n % 2 == 0)
-			{
-				for (cont = 2; cont != n; cont = cont + 2)
-				{
-					x = x + z;
-					z = x + z;
-				}
-				return z;
-			}
-			else
-			{
-				for (cont = 1; cont != n; cont = cont + 2)
-				{
-					x = x + z;
-					z = x + z;
-				}
-				return x;
-			}
-		}
-
-		static long fatorial(int n)
-		{
-			int aux = 1, prod = 1;
-
-			while (aux <= n)
-			{
-				prod *= aux;
-				aux++;
-			}
-			return prod;
-		}
-
-		static string isPrimo(int num)
-		{
-			int aux;
-			bool primo = true;
-
-			for (aux = 2; aux <= sqrt(num); aux++)
-			{
-				if (num % aux == 0)
-				{
-					primo = false;
-					break;
-				}
-			}
-
-			if (primo)
-				return "É primo";
-			else
-				return "Não é primo";
-		}
-	};
-
-	int ServidorProcessamento::id;
-	int ServidorProcessamento::idPrimario;
-	deque<Mensagem> ServidorProcessamento::logMensagens;
-	TryQueue ServidorProcessamento::ordem;
-	bool ServidorProcessamento::requestIdPrimario;
-	bool ServidorProcessamento::temPrimario;
-	Resposta ServidorProcessamento::resposta;
-
-	int main()
-	{
-
-		int delay = 2;
-		string id, senha = "";
-
-		cout << "Digite o ID do servidor e aperte enter para começar (delay de " << delay << " segundos)" << endl;
-		cin >> id;
-
-		this_thread::sleep_for(chrono::milliseconds(delay * 1000));
-
-		ServidorProcessamento peer("127.0.0.1", 6379, senha, stoi(id));
-		peer.subscribe(topicoServidores);
-		peer.subscribe(topicoCliente);
-
-		peer.start();
-
-		cout << "\n\nServidorProcessamento encerrou." << endl;
-
-		return 0;
 	}
+	
+	static long
+	fibonacci(int n)
+	{
+		int cont;
+		long int x = 0, z = 1;
+
+		if (n % 2 == 0)
+		{
+			for (cont = 2; cont != n; cont = cont + 2)
+			{
+				x = x + z;
+				z = x + z;
+			}
+			return z;
+		}
+		else
+		{
+			for (cont = 1; cont != n; cont = cont + 2)
+			{
+				x = x + z;
+				z = x + z;
+			}
+			return x;
+		}
+	}
+
+	static long fatorial(int n)
+	{
+		int aux = 1, prod = 1;
+
+		while (aux <= n)
+		{
+			prod *= aux;
+			aux++;
+		}
+		return prod;
+	}
+
+	static string isPrimo(int num)
+	{
+		int aux;
+		bool primo = true;
+
+		for (aux = 2; aux <= sqrt(num); aux++)
+		{
+			if (num % aux == 0)
+			{
+				primo = false;
+				break;
+			}
+		}
+
+		if (primo)
+			return "É primo";
+		else
+			return "Não é primo";
+	}
+};
+
+int ServidorProcessamento::id;
+int ServidorProcessamento::idPrimario;
+deque<Mensagem> ServidorProcessamento::logMensagens;
+TryQueue ServidorProcessamento::ordem;
+bool ServidorProcessamento::requestIdPrimario;
+bool ServidorProcessamento::temPrimario;
+Resposta ServidorProcessamento::resposta;
+
+int main()
+{
+
+	int delay = 2;
+	string id, senha = "";
+
+	cout << "Digite o ID do servidor e aperte enter para começar (delay de " << delay << " segundos)" << endl;
+	cin >> id;
+
+	this_thread::sleep_for(chrono::milliseconds(delay * 1000));
+
+	ServidorProcessamento peer("127.0.0.1", 6379, senha, stoi(id));
+	peer.subscribe(topicoServidores);
+	peer.subscribe(topicoCliente);
+
+	peer.start();
+
+	cout << "\n\nServidorProcessamento encerrou." << endl;
+
+	return 0;
+}
