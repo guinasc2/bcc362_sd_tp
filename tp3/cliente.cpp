@@ -61,11 +61,17 @@ public:
 				cout << "Adeus!" << endl;
 			} else if (message == "!help" || message == "!h") {
 				cout << "!read <position> | !r <position>" << endl;
-				cout << "\tLê o que está na posição <position> nos servidores de armazenamento." << endl;
-				cout << "!write <position> <value>" << endl;
-				cout << "\tEscreve <value> na posição <position> nos servidores de armazenamento." << endl;
+				cout << "\tLê o que está na posição <position> nos servidores de armazenamento." << endl << endl;
+				cout << "!write <position> <value> | !w <position> <value>" << endl;
+				cout << "\tEscreve <value> na posição <position> nos servidores de armazenamento." << endl << endl;
 
-				cout << "Os servidores de processamento não estão prontos!!!!!!!!!" << endl;
+				cout << "!process <function> <input> | !p <function> <input>" << endl;
+				cout << "\tExecuta a função <function> com a entrada <input> e retorna o resultado." << endl << endl;
+				cout << "\t\tFunções disponíveis:" << endl;
+				cout << "\t\t\tfib x -> Fibonacci na posição x" << endl;
+				cout << "\t\t\tfat x -> Fatorial de x" << endl;
+				cout << "\t\t\texp x -> e^x" << endl;
+				cout << "\t\t\tprimo x -> Se x é primo" << endl;
 			} else {
 				makeMessage(message);
 			}
