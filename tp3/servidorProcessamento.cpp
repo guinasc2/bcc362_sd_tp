@@ -427,45 +427,45 @@ public:
 				logMensagens.pop_front();
 
 				cout << "DEBUG acceptRequestFromClient -> " << m.conteudo << endl;
-				if (mensagem.find("fib") != std::string::npos)
+				if (m.conteudo.find("fib") != std::string::npos)
 				{
 
-					cout << "DEBUG Fibonacci -> " + mensagem << endl;
-					size_t token = mensagem.find_first_of(",", 0);
-					string valorString = mensagem.substr(token + 1, mensagem.size());
+					cout << "DEBUG Fibonacci -> " + m.conteudo << endl;
+					size_t token = m.conteudo.find_first_of(",", 0);
+					string valorString = m.conteudo.substr(token + 1, m.conteudo.size());
 
 					message = to_string(fibonacci(stoi(valorString)));
 					resposta.conteudo = message;
 					resposta.pronto = true;
 				}
-				else if (mensagem.find("exp") != std::string::npos)
+				else if (m.conteudo.find("exp") != std::string::npos)
 				{
 
-					cout << "DEBUG Exponencial -> " + mensagem << endl;
-					size_t token = mensagem.find_first_of(",", 0);
-					string valorString = mensagem.substr(token + 1, mensagem.size());
+					cout << "DEBUG Exponencial -> " + m.conteudo << endl;
+					size_t token = m.conteudo.find_first_of(",", 0);
+					string valorString = m.conteudo.substr(token + 1, m.conteudo.size());
 
 					message = to_string(exp(stoi(valorString)));
 					resposta.conteudo = message;
 					resposta.pronto = true;
 				}
-				else if (mensagem.find("fat") != std::string::npos)
+				else if (m.conteudo.find("fat") != std::string::npos)
 				{
 
-					cout << "DEBUG Fatorial -> " + mensagem << endl;
-					size_t token = mensagem.find_first_of(",", 0);
-					string valorString = mensagem.substr(token + 1, mensagem.size());
+					cout << "DEBUG Fatorial -> " + m.conteudo << endl;
+					size_t token = m.conteudo.find_first_of(",", 0);
+					string valorString = m.conteudo.substr(token + 1, m.conteudo.size());
 
 					message = to_string(fatorial(stoi(valorString)));
 					resposta.conteudo = message;
 					resposta.pronto = true;
 				}
-				else if (mensagem.find("primo") != std::string::npos)
+				else if (m.conteudo.find("primo") != std::string::npos)
 				{
 
-					cout << "DEBUG É primo -> " + mensagem << endl;
-					size_t token = mensagem.find_first_of(",", 0);
-					string valorString = mensagem.substr(token + 1, mensagem.size());
+					cout << "DEBUG É primo -> " + m.conteudo << endl;
+					size_t token = m.conteudo.find_first_of(",", 0);
+					string valorString = m.conteudo.substr(token + 1, m.conteudo.size());
 
 					message = isPrimo(stoi(valorString));
 					resposta.conteudo = message;
@@ -474,9 +474,9 @@ public:
 				else
 				{
 
-					cout << "DEBUG Não entendi -> " + mensagem << endl;
+					cout << "DEBUG Não entendi -> " + m.conteudo << endl;
 
-					resposta.conteudo = "Não entendi -> " + mensagem;
+					resposta.conteudo = "Não entendi -> " + m.conteudo;
 					resposta.pronto = true;
 				}
 			}
