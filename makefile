@@ -8,3 +8,9 @@ armazenamento: tp3/servidorArmazenamento.cpp
 	
 processamento: tp3/servidorProcessamento.cpp
 	g++ tp3/servidorProcessamento.cpp -o servidorProcessamento -std=c++17 -lredis++ -lhiredis -pthread
+
+arm: armazenamento
+	./servidorArmazenamento
+
+cli: cliente
+	./cliente

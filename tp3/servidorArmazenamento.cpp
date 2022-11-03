@@ -67,11 +67,11 @@ public:
 	Subscriber sub;
 	Data array[100];
 	ServerList serverList;
-	
+
 	static int id, idPrimario, posicaoLeitura;
 	static deque<Mensagem> logMensagens;
 	static TryQueue ordem;
-	static bool requestIdPrimario, temPrimario, requestFromClient, responseFromPrimario;
+	static bool requestIdPrimario, temPrimario, requestFromClient, responseFromPrimario, arrayChegouPrimario;
 	static Escrita escrita;
 
 	ServidorArmazenamento(string host = "127.0.0.1", int port = 6379, string password = "", int idPeer = 0) : 
@@ -163,7 +163,15 @@ public:
 					serverList.servidores[serverList.size].seguro = true;
 					serverList.size++;
 				}
-				message = "temPrimario!" + to_string(id);
+
+				string vet="| ";
+				for(int j=0;j<100;j++){
+					if(array[j].valido){
+						vet = vet + "(" + to_string(j) + "," + array[j].conteudo + ") | ";
+					}
+				}
+
+				message = "temPrimario!" + to_string(id) + vet + "-1";
 				redis_.publish(topicoServidores, makeMessage(message));
 				requestIdPrimario = false;
 			}
@@ -378,6 +386,31 @@ public:
 					startPub();
 				}
 			}
+			if(arrayChegouPrimario){
+				arrayChegouPrimario=false;
+				int counter=0,counter2=0,c1=0,c2=0;
+				m = logMensagens[0];
+				logMensagens.pop_front();
+				for(int j=0;j<100;j++){
+					counter= m.conteudo.find_first_of("(", counter2);
+					counter2= m.conteudo.find_first_of(",", counter);
+					if(counter==-1) break;
+					if(stoi(m.conteudo.substr(counter+1,counter2-counter-1))==j){
+						counter = m.conteudo.find_first_of(",", counter2);
+						counter2 = m.conteudo.find_first_of(")", counter);
+						array[j].conteudo = m.conteudo.substr(counter+1,counter2-counter-1);
+						array[j].valido = true;
+						cout << array[j].conteudo << "," << j << endl;
+						c1=counter;
+						c2=counter2;
+					}
+					else{
+						counter=c1;
+						counter2=c2;
+					}
+				}
+			}
+
 		}
 	}
 
@@ -422,9 +455,12 @@ public:
 				}
 			} else if (msg.conteudo.find("temPrimario!") != std::string::npos && idPrimario == -1) {
 				token = msg.conteudo.find_first_of("!", 0);
-				conteudo = msg.conteudo.substr(token+1, msg.conteudo.size());
+				conteudo = msg.conteudo.substr(token+1, msg.conteudo.find_first_of("|",msg.conteudo.size()-token)-token-1);
 				temPrimario = true;
 				idPrimario = stoi(conteudo);
+				arrayChegouPrimario=true;
+				logMensagens.push_back(msg);
+				
 			} else if (msg.conteudo.find("acceptRequestFromClient", 0)  != std::string::npos && id != idPrimario) {
 				responseFromPrimario = true;
 				Mensagem m = logMensagens[0];
@@ -495,6 +531,7 @@ bool ServidorArmazenamento::requestFromClient;
 bool ServidorArmazenamento::responseFromPrimario;
 int ServidorArmazenamento::posicaoLeitura;
 Escrita ServidorArmazenamento::escrita;
+bool ServidorArmazenamento::arrayChegouPrimario;
 
 int main() {
 
