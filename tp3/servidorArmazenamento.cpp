@@ -538,15 +538,15 @@ int main() {
 	int delay = 2;
 	string id, senha = "";
 
-	// cout << "Digite a senha do servidor, o ID do servidor e aperte enter para começar (delay de " << delay << " segundos)" << endl;
-	// cin >> senha >> id >> pedidos;
+	cout << "Digite a senha do servidor, o ID do servidor e aperte enter para começar (delay de " << delay << " segundos)" << endl;
+	cin >> senha >> id;
 
-	cout << "Digite o ID do servidor e aperte enter para começar (delay de " << delay << " segundos)" << endl;
-	cin >> id;
+	// cout << "Digite o ID do servidor e aperte enter para começar (delay de " << delay << " segundos)" << endl;
+	// cin >> id;
 	
 	this_thread::sleep_for(chrono::milliseconds(delay * 1000));
 
-	ServidorArmazenamento peer("127.0.0.1", 6379, senha, stoi(id));
+	ServidorArmazenamento peer("containers-us-west-83.railway.app", 6209, senha, stoi(id));
 	peer.subscribe(topicoServidores);
 	peer.subscribe(topicoCliente);
 

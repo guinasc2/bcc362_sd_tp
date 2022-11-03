@@ -155,13 +155,13 @@ int main() {
 	string senha = "";
 
 
-	// cout << "Digite a senha do servidor: ";
-	// cin >> senha;
 	cout << "Seja bem vindo! Use \"!help\" para ver os comandos!" << endl;
+	cout << "Digite a senha do servidor: ";
+	cin >> senha;
 	
 	this_thread::sleep_for(chrono::milliseconds(delay * 1000));
 
-	Cliente peer("127.0.0.1", 6379, senha);
+	Cliente peer("containers-us-west-83.railway.app", 6209, senha);
 	peer.subscribe(topicoArmazenamento);
 	peer.subscribe(topicoProcessamento);
 
